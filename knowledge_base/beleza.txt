@@ -1,0 +1,3 @@
+BeautyFlow AI é uma plataforma para negócios de beleza, estética e bem-estar.
+Ela ajuda a organizar agenda, clientes, serviços, campanhas e atendimento com IA.
+O atendimento simulado via WhatsApp detecta intenções como agendar, cancelar, reagendar, tirar dúvidas e responder promoções.
