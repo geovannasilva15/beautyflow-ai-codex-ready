@@ -6,7 +6,6 @@
 
 ![Visão explicativa do projeto BeautyFlow AI](assets/readme-project-overview.svg)
 
-
 <div align="center">
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
@@ -19,70 +18,165 @@
 
 ## Sobre o projeto
 
-O BeautyFlow AI é um protótipo full stack voltado a salões, clínicas de estética e profissionais autônomos. A aplicação combina gestão operacional, indicadores e recursos inteligentes em uma experiência integrada.
+O **BeautyFlow AI** é um protótipo full stack para salões, clínicas de estética e profissionais autônomos. A aplicação combina gestão operacional, indicadores, atendimento simulado com IA e campanhas em uma experiência visual inspirada em SaaS de beleza.
 
-## Principais funcionalidades
+A proposta é transformar conversas e rotinas manuais em ações organizadas: cadastro de clientes, agenda, serviços, recomendações, campanhas e simulação de WhatsApp.
 
-- Dashboard executivo com indicadores do negócio
-- Cadastro e gestão de clientes e serviços
-- Agenda de atendimentos
-- Assistente e recomendador de serviços
-- Simulação de atendimento pelo WhatsApp
-- Campanhas e mensagens programadas
-- API documentada automaticamente
+## Funcionalidades
+
+- Login demo com autenticação local
+- Home com visão geral do produto
+- Dashboard com clientes, agenda, receita, ticket médio e serviços mais usados
+- Cadastro, busca, edição e exclusão segura de clientes
+- Cadastro, edição e desativação de serviços
+- Agenda com criação de agendamentos e atualização de status
+- Assistente IA para respostas, mensagens e posts de campanha
+- Recomendador de serviços por perfil da cliente
+- Atendimento IA com detecção de intenção no estilo WhatsApp
+- Campanhas com simulação de envio para público-alvo
+- API FastAPI documentada automaticamente
+
+## Tecnologias
+
+- Python
+- FastAPI
+- Streamlit
+- SQLite
+- SQLModel
+- Pandas
+- Requests
+- Pytest
+- HTTPX
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
-    UI[Streamlit] --> API[FastAPI]
+    UI[Streamlit Frontend] --> API[FastAPI Backend]
     API --> DB[(SQLite)]
+    API --> IA[Serviços simulados de IA]
     API --> ML[Recomendador]
-    API --> SVC[Serviços]
+    API --> MSG[Campanhas e WhatsApp simulado]
 ```
 
-## Tecnologias
+## Como executar localmente
 
-Python, FastAPI, Streamlit, SQLModel, SQLite, Pandas, Requests, Pytest e HTTPX.
-
-## Executar localmente
+Crie e ative o ambiente virtual:
 
 ```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
+```
+
+No Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+No Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+Instale as dependências e crie os dados iniciais:
+
+```bash
 pip install -r requirements.txt
 python seed.py
+```
+
+Rode o backend:
+
+```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Em outro terminal:
+Em outro terminal, rode o frontend:
 
 ```bash
 python -m streamlit run frontend/streamlit_app.py
 ```
 
-Acesse a interface em `http://localhost:8501` e a documentação da API em `http://127.0.0.1:8000/docs`.
+Acesse:
 
-<details><summary>Credenciais demonstrativas</summary>
+```text
+Frontend: http://localhost:8501
+API Docs: http://127.0.0.1:8000/docs
+```
+
+## Login demo
 
 ```text
 E-mail: geovanna@beautyflow.ai
 Senha: 123456
 ```
 
-</details>
+## Endpoints principais
+
+```text
+GET  /api/health
+GET  /api/dashboard
+GET  /api/clients
+POST /api/clients
+PUT  /api/clients/{client_id}
+DELETE /api/clients/{client_id}
+
+GET  /api/services
+POST /api/services
+PUT  /api/services/{service_id}
+DELETE /api/services/{service_id}
+
+GET  /api/professionals
+POST /api/professionals
+
+GET  /api/appointments
+POST /api/appointments
+PATCH /api/appointments/{appointment_id}/status
+
+POST /api/recommendations
+POST /api/ai/chat
+POST /api/ai/message
+POST /api/ai/marketing-post
+POST /api/whatsapp/simulate
+
+GET  /api/campaigns
+POST /api/campaigns
+POST /api/campaigns/{campaign_id}/simulate-send
+GET  /api/scheduled-messages
+```
 
 ## Estrutura
 
 ```text
-app/             Backend e regras de negócio
+app/             Backend, API, banco, serviços e recomendador
 frontend/        Interface Streamlit
 data/            Dados demonstrativos
-knowledge_base/  Base textual
+knowledge_base/  Base textual de apoio
 docs/            Documentação
-tests/           Testes
+assets/          Imagens e recursos do README
+tests/           Testes automatizados
 ```
+
+## Testes
+
+```bash
+python -m compileall app frontend
+pytest
+```
+
+## Roadmap
+
+- Publicação em cloud
+- Integração real com API de WhatsApp
+- Autenticação real por usuário
+- Banco em nuvem
+- Histórico avançado de conversas
+- Dashboard com gráficos adicionais
+
+## Status
+
+Projeto em evolução, com backend FastAPI, frontend Streamlit, dados demonstrativos, campanhas, agenda e atendimento IA simulado funcionais para apresentação e testes locais.
 
 ## Autoria
 
