@@ -25,22 +25,29 @@ def process_whatsapp_message(session: Session, client_name: str, client_phone: s
     intent = detect_intent(message)
     appointment_id = None
     action_status = "responded"
+    action_suggested = "Responder de forma acolhedora e registrar a conversa."
 
     if intent == ConversationIntent.schedule:
         response, appointment_id = create_appointment_from_message(session, client_name, client_phone, message)
         action_status = "appointment_created" if appointment_id else "appointment_suggestion"
+        action_suggested = "Verificar disponibilidade, sugerir horário e criar agendamento quando possível."
     elif intent == ConversationIntent.cancel:
         response, appointment_id = cancel_latest_appointment(session, client_phone)
         action_status = "appointment_canceled" if appointment_id else "cancel_not_found"
+        action_suggested = "Cancelar agendamento ativo ou pedir mais dados para localizar a reserva."
     elif intent == ConversationIntent.reschedule:
         response = "Claro! Posso te ajudar a reagendar. Tenho opções amanhã às 10h, 14h ou 16h. Qual fica melhor?"
         action_status = "reschedule_suggested"
+        action_suggested = "Oferecer novos horários e atualizar o status do agendamento anterior."
     elif intent == ConversationIntent.promotion:
         response = "Temos campanhas especiais disponíveis. Posso te enviar as promoções da semana e reservar um horário para você."
+        action_suggested = "Enviar campanha ativa e transformar o interesse em agendamento."
     elif intent == ConversationIntent.question:
         response = "Posso te ajudar! Temos serviços de beleza, estética e bem-estar. Quer saber valores ou horários disponíveis?"
+        action_suggested = "Responder a dúvida, indicar serviço relacionado e oferecer próximo passo."
     else:
         response = "Oi! Sou a assistente do BeautyFlow AI. Posso ajudar com agendamentos, cancelamentos, valores e promoções."
+        action_suggested = "Classificar manualmente a conversa se a intenção continuar indefinida."
 
     record = ConversationMessage(
         client_name=client_name,
@@ -59,6 +66,7 @@ def process_whatsapp_message(session: Session, client_name: str, client_phone: s
         "intent": intent,
         "response": response,
         "action_status": action_status,
+        "action_suggested": action_suggested,
         "appointment_id": appointment_id,
         "conversation_id": record.id,
     }
