@@ -1,38 +1,102 @@
 from __future__ import annotations
 
 from datetime import datetime, time, timedelta
+
 import pandas as pd
 import streamlit as st
 
-from frontend.api_client import api_get, api_post, format_currency
+from frontend.api_client import api_get, api_patch, api_post, format_currency
 from frontend.components import page_header
+
+STATUS_OPTIONS = {
+    "Agendado": "scheduled",
+    "Concluído": "completed",
+    "Cancelado": "canceled",
+    "Não compareceu": "no_show",
+}
+
+STATUS_LABELS = {value: label for label, value in STATUS_OPTIONS.items()}
 
 
 def render() -> None:
-    page_header("Agenda", "Crie e visualize agendamentos.")
-    clients, services, pros = api_get("/clients"), api_get("/services"), api_get("/professionals")
-    appointments = api_get("/appointments")
-    if clients and services and pros:
-        cm = {f"{c['name']} · {c['id']}": c for c in clients}
-        sm = {f"{s['name']} · {format_currency(s['price'])}": s for s in services}
-        pm = {f"{p['name']} · {p['specialty']}": p for p in pros}
-        with st.form("appointment_create"):
-            c1, c2, c3 = st.columns(3)
-            client_key = c1.selectbox("Cliente", list(cm))
-            service_key = c2.selectbox("Serviço", list(sm))
-            pro_key = c3.selectbox("Profissional", list(pm))
-            date = c1.date_input("Data", value=datetime.now().date() + timedelta(days=1))
-            hour = c2.time_input("Horário", value=time(14, 0))
-            price = c3.number_input("Preço", min_value=0.0, value=float(sm[service_key]["price"]))
-            if st.form_submit_button("Agendar"):
-                api_post("/appointments", json={"client_id": cm[client_key]["id"], "service_id": sm[service_key]["id"], "professional_id": pm[pro_key]["id"], "scheduled_at": datetime.combine(date, hour).isoformat(), "final_price": price})
-                st.success("Agendamento criado.")
-                st.rerun()
-    else:
-        st.warning("Cadastre clientes, serviços e profissionais antes de agendar.")
+    page_header("Agenda inteligente", "Crie, acompanhe e atualize os atendimentos do BeautyFlow AI.")
 
-    df = pd.DataFrame(appointments)
-    if df.empty:
-        st.info("Nenhum agendamento.")
-    else:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+    clients = api_get("/clients")
+    services = api_get("/services")
+    professionals = api_get("/professionals")
+    appointments = api_get("/appointments")
+
+    client_map = {f"{item['name']} · ID {item['id']}": item for item in clients}
+    service_map = {f"{item['name']} · {format_currency(item['price'])}": item for item in services}
+    professional_map = {f"{item['name']} · {item['specialty']}": item for item in professionals}
+
+    with st.container(border=True):
+        st.markdown("### Novo agendamento")
+        if not clients or not services or not professionals:
+            st.warning("Cadastre pelo menos um cliente, um serviço e um profissional antes de criar agendamentos.")
+        else:
+            with st.form("appointment_create", clear_on_submit=False):
+                c1, c2, c3 = st.columns(3)
+                selected_client = c1.selectbox("Cliente", list(client_map.keys()))
+                selected_service = c2.selectbox("Serviço", list(service_map.keys()))
+                selected_professional = c3.selectbox("Profissional", list(professional_map.keys()))
+                scheduled_date = c1.date_input("Data", value=datetime.now().date() + timedelta(days=1))
+                scheduled_time = c2.time_input("Horário", value=time(14, 0))
+                final_price = c3.number_input(
+                    "Preço final",
+                    min_value=0.0,
+                    value=float(service_map[selected_service]["price"]),
+                    step=10.0,
+                )
+                notes = st.text_area("Observações", placeholder="Ex: cliente prefere atendimento pela manhã")
+
+                if st.form_submit_button("Criar agendamento"):
+                    api_post(
+                        "/appointments",
+                        json={
+                            "client_id": client_map[selected_client]["id"],
+                            "service_id": service_map[selected_service]["id"],
+                            "professional_id": professional_map[selected_professional]["id"],
+                            "scheduled_at": datetime.combine(scheduled_date, scheduled_time).isoformat(),
+                            "final_price": float(final_price),
+                            "notes": notes or None,
+                        },
+                    )
+                    st.success("Agendamento criado com sucesso.")
+                    st.rerun()
+
+    st.markdown("### Agendamentos")
+    appointment_df = pd.DataFrame(appointments)
+    if appointment_df.empty:
+        st.info("Nenhum agendamento encontrado.")
+        return
+
+    clients_by_id = {item["id"]: item["name"] for item in clients}
+    services_by_id = {item["id"]: item["name"] for item in services}
+    professionals_by_id = {item["id"]: item["name"] for item in professionals}
+
+    appointment_df["cliente"] = appointment_df["client_id"].map(clients_by_id)
+    appointment_df["serviço"] = appointment_df["service_id"].map(services_by_id)
+    appointment_df["profissional"] = appointment_df["professional_id"].map(professionals_by_id)
+    appointment_df["status_nome"] = appointment_df["status"].map(STATUS_LABELS).fillna(appointment_df["status"])
+    appointment_df["valor"] = appointment_df["final_price"].apply(format_currency)
+
+    visible_cols = ["scheduled_at", "cliente", "serviço", "profissional", "status_nome", "valor", "notes"]
+    st.dataframe(appointment_df[visible_cols], use_container_width=True, hide_index=True)
+
+    st.markdown("### Atualizar status")
+    appointment_options = {
+        f"#{int(row['id'])} · {row.get('cliente', 'Cliente')} · {row.get('serviço', 'Serviço')} · {row.get('scheduled_at', '')}": int(row["id"])
+        for _, row in appointment_df.iterrows()
+    }
+
+    with st.container(border=True):
+        c1, c2 = st.columns([0.7, 0.3])
+        selected_appointment = c1.selectbox("Agendamento", list(appointment_options.keys()))
+        selected_status = c2.selectbox("Novo status", list(STATUS_OPTIONS.keys()))
+
+        if st.button("Atualizar status do agendamento"):
+            appointment_id = appointment_options[selected_appointment]
+            api_patch(f"/appointments/{appointment_id}/status", json={"status": STATUS_OPTIONS[selected_status]})
+            st.success("Status atualizado com sucesso.")
+            st.rerun()
