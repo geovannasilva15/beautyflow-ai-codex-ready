@@ -76,6 +76,12 @@ class AIMessageRequest(BaseModel):
     tone: str = "profissional, simpático e objetivo"
 
 
+class MarketingPostRequest(BaseModel):
+    service_name: str
+    target_audience: str
+    campaign_goal: str
+
+
 class RecommendationRequest(BaseModel):
     client_profile: str
     top_k: int = Field(default=3, ge=1, le=10)
@@ -91,6 +97,7 @@ class WhatsAppSimulationResponse(BaseModel):
     intent: ConversationIntent
     response: str
     action_status: str
+    action_suggested: Optional[str] = None
     appointment_id: Optional[int] = None
 
 
