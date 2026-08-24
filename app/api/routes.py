@@ -14,6 +14,7 @@ from app.schemas.schemas import (
     CampaignCreate,
     ClientCreate,
     ClientUpdate,
+    MarketingPostRequest,
     ProfessionalCreate,
     RecommendationRequest,
     ServiceCreate,
@@ -33,9 +34,6 @@ def health_check() -> dict:
     return {"status": "ok", "message": "BeautyFlow AI API está funcionando."}
 
 
-# -----------------------------------------------------------------------------
-# Clientes
-# -----------------------------------------------------------------------------
 @router.post("/clients", response_model=Client)
 def create_client(payload: ClientCreate, session: Session = Depends(get_session)) -> Client:
     client = Client(**payload.model_dump())
@@ -55,10 +53,8 @@ def update_client(client_id: int, payload: ClientUpdate, session: Session = Depe
     client = session.get(Client, client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(client, field, value)
-
     session.add(client)
     session.commit()
     session.refresh(client)
@@ -70,19 +66,14 @@ def delete_client(client_id: int, session: Session = Depends(get_session)) -> di
     client = session.get(Client, client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
-
     has_appointment = session.exec(select(Appointment).where(Appointment.client_id == client_id)).first()
     if has_appointment:
         raise HTTPException(status_code=400, detail="Cliente possui agendamentos vinculados e não pode ser excluído.")
-
     session.delete(client)
     session.commit()
     return {"message": "Cliente excluído com sucesso."}
 
 
-# -----------------------------------------------------------------------------
-# Serviços
-# -----------------------------------------------------------------------------
 @router.post("/services", response_model=Service)
 def create_service(payload: ServiceCreate, session: Session = Depends(get_session)) -> Service:
     service = Service(**payload.model_dump())
@@ -102,10 +93,8 @@ def update_service(service_id: int, payload: ServiceUpdate, session: Session = D
     service = session.get(Service, service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Serviço não encontrado.")
-
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(service, field, value)
-
     session.add(service)
     session.commit()
     session.refresh(service)
@@ -117,16 +106,12 @@ def delete_service(service_id: int, session: Session = Depends(get_session)) -> 
     service = session.get(Service, service_id)
     if not service:
         raise HTTPException(status_code=404, detail="Serviço não encontrado.")
-
     service.active = False
     session.add(service)
     session.commit()
     return {"message": "Serviço desativado com sucesso."}
 
 
-# -----------------------------------------------------------------------------
-# Profissionais
-# -----------------------------------------------------------------------------
 @router.post("/professionals", response_model=Professional)
 def create_professional(payload: ProfessionalCreate, session: Session = Depends(get_session)) -> Professional:
     professional = Professional(**payload.model_dump())
@@ -141,22 +126,17 @@ def list_professionals(session: Session = Depends(get_session)) -> list[Professi
     return session.exec(select(Professional).where(Professional.active == True).order_by(Professional.name)).all()  # noqa: E712
 
 
-# -----------------------------------------------------------------------------
-# Agenda
-# -----------------------------------------------------------------------------
 @router.post("/appointments", response_model=Appointment)
 def create_appointment(payload: AppointmentCreate, session: Session = Depends(get_session)) -> Appointment:
     client = session.get(Client, payload.client_id)
     service = session.get(Service, payload.service_id)
     professional = session.get(Professional, payload.professional_id)
-
     if not client:
         raise HTTPException(status_code=404, detail="Cliente não encontrado.")
     if not service:
         raise HTTPException(status_code=404, detail="Serviço não encontrado.")
     if not professional:
         raise HTTPException(status_code=404, detail="Profissional não encontrado.")
-
     appointment = Appointment(
         client_id=payload.client_id,
         service_id=payload.service_id,
@@ -185,7 +165,6 @@ def update_appointment_status(
     appointment = session.get(Appointment, appointment_id)
     if not appointment:
         raise HTTPException(status_code=404, detail="Agendamento não encontrado.")
-
     appointment.status = payload.status
     session.add(appointment)
     session.commit()
@@ -193,9 +172,6 @@ def update_appointment_status(
     return appointment
 
 
-# -----------------------------------------------------------------------------
-# IA
-# -----------------------------------------------------------------------------
 @router.post("/ai/chat")
 def ai_chat(payload: AIChatRequest) -> dict:
     return {"answer": generate_ai_answer(payload.question, payload.business_context)}
@@ -207,8 +183,8 @@ def ai_message(payload: AIMessageRequest) -> dict:
 
 
 @router.post("/ai/marketing-post")
-def ai_marketing_post(service_name: str, target_audience: str, campaign_goal: str) -> dict:
-    return {"post": generate_marketing_post(service_name, target_audience, campaign_goal)}
+def ai_marketing_post(payload: MarketingPostRequest) -> dict:
+    return {"post": generate_marketing_post(payload.service_name, payload.target_audience, payload.campaign_goal)}
 
 
 @router.post("/recommendations")
@@ -216,9 +192,6 @@ def recommendations(payload: RecommendationRequest, session: Session = Depends(g
     return {"recommendations": recommend_services(session, payload.client_profile, payload.top_k)}
 
 
-# -----------------------------------------------------------------------------
-# Atendimento IA / WhatsApp simulado
-# -----------------------------------------------------------------------------
 @router.post("/whatsapp/simulate")
 def whatsapp_simulate(payload: WhatsAppSimulationRequest, session: Session = Depends(get_session)) -> dict:
     return process_whatsapp_message(session, payload.client_name, payload.client_phone, payload.message)
@@ -229,9 +202,6 @@ def list_conversations(session: Session = Depends(get_session)) -> list[Conversa
     return session.exec(select(ConversationMessage).order_by(ConversationMessage.created_at.desc())).all()
 
 
-# -----------------------------------------------------------------------------
-# Campanhas
-# -----------------------------------------------------------------------------
 @router.post("/campaigns", response_model=Campaign)
 def create_new_campaign(payload: CampaignCreate, session: Session = Depends(get_session)) -> Campaign:
     return create_campaign(session, payload)
@@ -257,9 +227,6 @@ def simulate_campaign_send(campaign_id: int, session: Session = Depends(get_sess
     return schedule_campaign_messages(session, campaign_id)
 
 
-# -----------------------------------------------------------------------------
-# Dashboard
-# -----------------------------------------------------------------------------
 @router.get("/dashboard")
 def dashboard(session: Session = Depends(get_session)) -> dict:
     return get_dashboard_metrics(session)
