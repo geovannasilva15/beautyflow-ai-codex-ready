@@ -19,6 +19,13 @@ def schedule_campaign_messages(session: Session, campaign_id: int) -> dict:
     if not campaign:
         return {"created": 0, "message": "Campanha não encontrada."}
 
+    existing_messages = session.exec(
+        select(ScheduledMessage).where(ScheduledMessage.campaign_id == campaign_id)
+    ).all()
+    for message in existing_messages:
+        session.delete(message)
+    session.commit()
+
     clients = session.exec(select(Client)).all()
     created = 0
     for client in clients:
@@ -26,6 +33,7 @@ def schedule_campaign_messages(session: Session, campaign_id: int) -> dict:
         audience = (campaign.target_audience or "").lower()
         if audience and audience not in interests and audience not in client.name.lower():
             continue
+
         scheduled = ScheduledMessage(
             campaign_id=campaign.id,
             client_id=client.id,
@@ -36,5 +44,10 @@ def schedule_campaign_messages(session: Session, campaign_id: int) -> dict:
         )
         session.add(scheduled)
         created += 1
+
     session.commit()
+    campaign.status = "scheduled"
+    session.add(campaign)
+    session.commit()
+
     return {"created": created, "message": f"{created} mensagens simuladas foram programadas."}
